@@ -1,11 +1,14 @@
 
 import os
+
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import URL, text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+CORS(app)
 
 # MySQL database connection
 database_url = URL.create(
@@ -34,26 +37,30 @@ class User(db.Model):
 
 
 # Home API
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return jsonify({
         "message": "Welcome to VELoop User Profile API!",
         "status": "Backend is running successfully"
-    })
+    }), 200
 
 
 # Test database connection
-@app.route("/test-db")
+@app.route("/test-db", methods=["GET"])
 def test_db():
     try:
         db.session.execute(text("SELECT 1"))
+
         return jsonify({
             "message": "MySQL connected successfully!",
             "database": "veloop_db"
-        })
+        }), 200
+
     except Exception:
         db.session.rollback()
-        return jsonify({"error": "Database connection failed"}), 500
+        return jsonify({
+            "error": "Database connection failed"
+        }), 500
 
 
 # User registration API
@@ -78,17 +85,13 @@ def register():
             "error": "Password must contain at least 8 characters"
         }), 400
 
-    existing_user = User.query.filter_by(email=email).first()
-
-    if existing_user:
+    if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already registered"}), 409
-
-    hashed_password = generate_password_hash(password)
 
     new_user = User(
         name=name,
         email=email,
-        password_hash=hashed_password
+        password_hash=generate_password_hash(password)
     )
 
     try:
@@ -107,6 +110,7 @@ def register():
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Registration failed"}), 500
+
 
 # User login API
 @app.route("/login", methods=["POST"])
@@ -136,15 +140,15 @@ def login():
             "email": user.email
         }
     }), 200
-# User profile API
+
+
+# Get user profile API
 @app.route("/profile/<int:user_id>", methods=["GET"])
 def get_profile(user_id):
     user = db.session.get(User, user_id)
 
     if not user:
-        return jsonify({
-            "error": "User not found"
-        }), 404
+        return jsonify({"error": "User not found"}), 404
 
     return jsonify({
         "message": "Profile retrieved successfully!",
@@ -154,6 +158,61 @@ def get_profile(user_id):
             "email": user.email
         }
     }), 200
+
+
+# Update user profile API
+@app.route("/profile/<int:user_id>", methods=["PUT"])
+def update_profile(user_id):
+    user = db.session.get(User, user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip().lower()
+
+    if not name or not email:
+        return jsonify({
+            "error": "Name and email are required"
+        }), 400
+
+    if len(name) > 100 or len(email) > 120:
+        return jsonify({"error": "Name or email is too long"}), 400
+
+    existing_user = User.query.filter(
+        User.email == email,
+        User.id != user_id
+    ).first()
+
+    if existing_user:
+        return jsonify({
+            "error": "Email already registered"
+        }), 409
+
+    try:
+        user.name = name
+        user.email = email
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Profile updated successfully!",
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email
+            }
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "error": "Profile update failed"
+        }), 500
+
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
