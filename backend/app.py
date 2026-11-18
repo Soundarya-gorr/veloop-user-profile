@@ -6,22 +6,36 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import URL, text
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+load_dotenv()
 CORS(app)
 
-# MySQL database connection
+# Aiven MySQL database connection
 database_url = URL.create(
     drivername="mysql+pymysql",
-    username="root",
+    username=os.getenv("DB_USER"),
     password=os.getenv("DB_PASSWORD"),
-    host="localhost",
-    port=3306,
-    database="veloop_db"
+    host=os.getenv("DB_HOST"),
+    port=int(os.getenv("DB_PORT")),
+    database=os.getenv("DB_NAME")
+)
+
+ssl_ca = os.path.join(
+    os.path.dirname(__file__),
+    os.getenv("DB_SSL_CA", "aiven-ca.pem")
 )
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "connect_args": {
+        "ssl": {
+            "ca": ssl_ca
+        }
+    }
+}
 
 db = SQLAlchemy(app)
 
