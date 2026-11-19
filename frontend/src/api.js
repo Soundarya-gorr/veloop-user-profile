@@ -1,68 +1,74 @@
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
-const API_URL = "http://127.0.0.1:5000";
-
-export async function registerUser(userData) {
-  const response = await fetch(`${API_URL}/register`, {
-    method: "POST",
+async function apiRequest(endpoint, options = {}) {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(options.token
+        ? { Authorization: `Bearer ${options.token}` }
+        : {}),
+      ...options.headers,
     },
-    body: JSON.stringify(userData),
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || "Registration failed");
+    throw new Error(
+      data.error || data.message || "Something went wrong. Please try again."
+    );
   }
 
   return data;
 }
 
-export async function loginUser(userData) {
-  const response = await fetch(`${API_URL}/login`, {
+export function registerUser(userData) {
+  return apiRequest("/register", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(userData),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
-export async function getUserProfile(userId) {
-  const response = await fetch(`${API_URL}/profile/${userId}`);
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Could not fetch profile");
-  }
-
-  return data;
+export function loginUser(userData) {
+  return apiRequest("/login", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
 }
 
-export async function updateUserProfile(userId, profileData) {
-  const response = await fetch(`${API_URL}/profile/${userId}`, {
+export function getCurrentUser(token) {
+  return apiRequest("/me", {
+    method: "GET",
+    token,
+  });
+}
+
+export function updateCurrentUser(token, profileData) {
+  return apiRequest("/me", {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    token,
     body: JSON.stringify(profileData),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Profile update failed");
-  }
-
-  return data;
 }
+export function getRewards(token) {
+  return apiRequest("/rewards", {
+    method: "GET",
+    token,
+  });
+}
+
+export function getRewardActivity(token) {
+  return apiRequest("/reward-activity", {
+    method: "GET",
+    token,
+  });
+}
+
+export function getAchievements(token) {
+  return apiRequest("/achievements", {
+    method: "GET",
+    token,
+  });
+}
+

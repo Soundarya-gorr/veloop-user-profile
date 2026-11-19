@@ -1,5 +1,13 @@
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import AuthPage from './AuthPage'
+import {
+  getCurrentUser,
+  updateCurrentUser,
+  getRewards,
+  getRewardActivity,
+  getAchievements
+} from './api'
 import {
   LayoutDashboard, UserRound, Gift, Trophy, Wallet,
   Users, Settings, Bell, Search, ChevronDown,
@@ -36,48 +44,222 @@ const navigation = [
 ]
 
 // Demo activity data
-const activities = [
-  {
-    title: 'Daily login reward',
-    detail: 'Today · 9:30 AM',
-    amount: '+25 XP',
-    icon: Zap
-  },
-  {
-    title: 'Achievement unlocked',
-    detail: 'Yesterday · 4:15 PM',
-    amount: '+50 Gems',
-    icon: Trophy
-  },
-  {
-    title: 'Referral joined',
-    detail: 'Yesterday · 11:20 AM',
-    amount: '+100 XP',
-    icon: Users
-  },
-]
+
 
 
 function App() {
+  console.log('VELoop App component rendered')
+  const [rewardBalances, setRewardBalances] = useState(null)
+  const [rewardsLoading, setRewardsLoading] = useState(false)
+  const [rewardsError, setRewardsError] = useState('')
+  const [activities, setActivities] = useState([])
+  const [activitiesLoading, setActivitiesLoading] = useState(false)
+  const [activitiesError, setActivitiesError] = useState('')
+  const [achievements, setAchievements] = useState([])
+  const [achievementsLoading, setAchievementsLoading] = useState(false)
+  const [achievementsError, setAchievementsError] = useState('')
+  const [mobileMenu, setMobileMenu] = useState(false)
+
+  const [token, setToken] = useState(() =>
+    localStorage.getItem('veloop_token')
+  )
   const [active, setActive] = useState('Overview')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [mobileMenu, setMobileMenu] = useState(false)
-    const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [profileName, setProfileName] = useState('Soundarya')
-  const [profileEmail, setProfileEmail] = useState('')
-  const [savedProfile, setSavedProfile] = useState({
-    name: 'Soundarya',
-    email: ''
-  })
 
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [profileEmail, setProfileEmail] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  useEffect(() => {
+    async function loadUser() {
+      if (!token) {
+        setUser(null)
+        setAuthLoading(false)
+        return
+      }
+
+      try {
+        const data = await getCurrentUser(token)
+
+        setUser(data.user)
+        setProfileName(data.user.name)
+        setProfileEmail(data.user.email)
+      } catch (error) {
+        localStorage.removeItem('veloop_token')
+        setToken(null)
+        setUser(null)
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+
+    loadUser()
+  }, [token])
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRewards() {
+      if (!token || !user) {
+        setRewardBalances(null)
+        return
+      }
+
+      setRewardsLoading(true)
+      setRewardsError('')
+
+      try {
+        const data = await getRewards(token)
+
+        if (!cancelled) {
+          setRewardBalances(data.rewards)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRewardsError(error.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setRewardsLoading(false)
+        }
+      }
+    }
+
+    loadRewards()
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, user])
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadActivities() {
+      if (!token || !user) {
+        setActivities([])
+        return
+      }
+
+      setActivitiesLoading(true)
+      setActivitiesError('')
+
+      try {
+        const data = await getRewardActivity(token)
+
+        if (!cancelled) {
+          setActivities(data.activities || [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setActivitiesError(error.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setActivitiesLoading(false)
+        }
+      }
+    }
+
+    loadActivities()
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, user])
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadAchievements() {
+      if (!token || !user) {
+        setAchievements([])
+        return
+      }
+
+      setAchievementsLoading(true)
+      setAchievementsError('')
+
+      try {
+        const data = await getAchievements(token)
+
+        if (!cancelled) {
+          setAchievements(data.achievements || [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAchievementsError(error.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setAchievementsLoading(false)
+        }
+      }
+    }
+
+    loadAchievements()
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, user])
+
+  const handleLogin = (data) => {
+    if (!data.token) {
+      alert('Login response did not contain an authentication token.')
+      return
+    }
+
+    localStorage.setItem('veloop_token', data.token)
+    setAuthLoading(true)
+    setToken(data.token)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('veloop_token')
+    setToken(null)
+    setUser(null)
+    setActive('Overview')
+    setIsEditingProfile(false)
+  }
+  const handleSaveProfile = async () => {
+    setProfileError('')
+
+    if (!profileName.trim() || !profileEmail.trim()) {
+      setProfileError('Name and email are required.')
+      return
+    }
+
+    setProfileSaving(true)
+
+    try {
+      const data = await updateCurrentUser(token, {
+        name: profileName.trim(),
+        email: profileEmail.trim()
+      })
+
+      setUser(data.user)
+      setProfileName(data.user.name)
+      setProfileEmail(data.user.email)
+      setIsEditingProfile(false)
+
+      alert('Profile updated successfully!')
+    } catch (error) {
+      setProfileError(error.message)
+    } finally {
+      setProfileSaving(false)
+    }
+  }
   const masked = '••••'
 
   // Demo reward data - backend connection will be added later
   const rewards = [
     {
       name: 'VE Balance',
-      value: '2,450',
+      key: 've_balance',
       unit: 'VE',
       icon: Coins,
       color: 'purple',
@@ -85,7 +267,7 @@ function App() {
     },
     {
       name: 'SVE Balance',
-      value: '850',
+      key: 'sve_balance',
       unit: 'SVE',
       icon: Gem,
       color: 'blue',
@@ -93,7 +275,7 @@ function App() {
     },
     {
       name: 'Gems',
-      value: '1,280',
+      key: 'gems',
       unit: 'Gems',
       icon: Sparkles,
       color: 'pink',
@@ -101,14 +283,13 @@ function App() {
     },
     {
       name: 'Tokens',
-      value: '560',
+      key: 'tokens',
       unit: 'Tokens',
       icon: Wallet,
       color: 'orange',
       change: '+5.6%'
     },
   ]
-
   const handleNavigation = (page) => {
     setActive(page)
     setMobileMenu(false)
@@ -136,66 +317,102 @@ function App() {
         </button>
       </div>
 
-      <div className="rewards-grid">
-        {rewards.map(reward => {
-          const Icon = reward.icon
+      {rewardsLoading && (
+        <p>Loading your rewards...</p>
+      )}
 
-          return (
-            <article className="reward-card" key={reward.name}>
-              <div className="reward-card-top">
-                <div className={`reward-icon ${reward.color}`}>
-                  <Icon size={20} />
+      {rewardsError && (
+        <p style={{ color: '#ff6b81' }}>
+          {rewardsError}
+        </p>
+      )}
+
+      {!rewardsLoading && !rewardsError && rewardBalances && (
+        <div className="rewards-grid">
+          {rewards.map(reward => {
+            const Icon = reward.icon
+
+            return (
+              <article className="reward-card" key={reward.key}>
+                <div className="reward-card-top">
+                  <div className={`reward-icon ${reward.color}`}>
+                    <Icon size={20} />
+                  </div>
+
+                  <span className="growth-tag">
+                    <ArrowUpRight size={13} />
+                    {reward.change}
+                  </span>
                 </div>
 
-                <span className="growth-tag">
-                  <ArrowUpRight size={13} />
-                  {reward.change}
-                </span>
+                <p>{reward.name}</p>
+
+                <div className="reward-value">
+                  {balanceVisible
+                    ? Number(rewardBalances[reward.key]).toLocaleString('en-IN')
+                    : masked}
+                  <span>{reward.unit}</span>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+  // Reusable activity list
+  const ActivityList = () => {
+    const activityIcons = {
+      zap: Zap,
+      trophy: Trophy,
+      users: Users,
+    }
+
+    if (activitiesLoading) {
+      return <p>Loading reward activity...</p>
+    }
+
+    if (activitiesError) {
+      return (
+        <p style={{ color: '#ff6b81' }}>
+          {activitiesError}
+        </p>
+      )
+    }
+
+    if (activities.length === 0) {
+      return <p>No reward activity yet.</p>
+    }
+
+    return (
+      <div className="activity-list">
+        {activities.map((activity) => {
+          const Icon = activityIcons[activity.icon] || Activity
+
+          return (
+            <div className="activity-row" key={activity.id}>
+              <div className="activity-icon">
+                <Icon size={18} />
               </div>
 
-              <p>{reward.name}</p>
-
-              <div className="reward-value">
-                {balanceVisible ? reward.value : masked}
-                <span>{reward.unit}</span>
+              <div className="activity-description">
+                <strong>{activity.title}</strong>
+                <span>{activity.detail}</span>
               </div>
-            </article>
+
+              <div className="activity-amount">
+                {activity.amount}
+              </div>
+
+              <span className="activity-status">
+                {activity.status}
+              </span>
+            </div>
           )
         })}
       </div>
-    </>
-  )
-
-  // Reusable activity list
-  const ActivityList = () => (
-    <div className="activity-list">
-      {activities.map((activity, index) => {
-        const Icon = activity.icon
-
-        return (
-          <div className="activity-row" key={index}>
-            <div className="activity-icon">
-              <Icon size={18} />
-            </div>
-
-            <div className="activity-description">
-              <strong>{activity.title}</strong>
-              <span>{activity.detail}</span>
-            </div>
-
-            <div className="activity-amount">
-              {activity.amount}
-            </div>
-
-            <span className="activity-status">
-              Completed
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-
+    )
+  }
   // Overview page
   const OverviewPage = () => (
     <>
@@ -330,52 +547,53 @@ function App() {
             </button>
           </div>
 
-          <div className="achievement-item">
             <div className="achievement-icon gold">
               <Trophy size={21} />
             </div>
 
-            <div>
-              <strong>Early Bird</strong>
-              <span>Logged in 7 days in a row</span>
-            </div>
+            {achievementsLoading && <p>Loading achievements...</p>}
 
-            <span className="earned-check">✓</span>
-          </div>
+            {achievementsError && (
+              <p style={{ color: '#ff6b81' }}>{achievementsError}</p>
+            )}
 
-          <div className="achievement-item">
-            <div className="achievement-icon violet">
-              <Zap size={21} />
-            </div>
+            {!achievementsLoading && !achievementsError &&
+              achievements.slice(0, 3).map((item) => {
+                const icons = {
+                  trophy: Trophy,
+                  zap: Zap,
+                  users: Users,
+                  star: Star
+                }
 
-            <div>
-              <strong>Fast Learner</strong>
-              <span>Earned 500 XP</span>
-            </div>
+                const Icon = icons[item.icon] || Trophy
+                const completed = item.status === 'Completed'
 
-            <span className="earned-check">✓</span>
-          </div>
+                return (
+                  <div className="achievement-item" key={item.id}>
+                    <div className="achievement-icon violet">
+                      <Icon size={21} />
+                    </div>
 
-          <div className="achievement-item">
-            <div className="achievement-icon teal">
-              <Users size={21} />
-            </div>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.description}</span>
+                    </div>
 
-            <div>
-              <strong>Team Player</strong>
-              <span>Invite 5 friends</span>
-            </div>
-
-            <span className="progress-mini">3/5</span>
-          </div>
-
-          <button
-            className="all-achievements"
-            onClick={() => handleNavigation('Achievements')}
-          >
-            Explore all achievements
-            <ArrowUpRight size={15} />
-          </button>
+                    <span className={completed ? 'earned-check' : 'progress-mini'}>
+                      {completed ? '✓' : `${item.progress}/${item.target}`}
+                    </span>
+                  </div>
+                )
+              })
+            }
+            <button
+              className="all-achievements"
+              onClick={() => handleNavigation('Achievements')}
+            >
+              Explore all achievements
+              <ArrowUpRight size={15} />
+            </button>
         </article>
       </section>
 
@@ -400,7 +618,7 @@ function App() {
     </>
   )
 
-  
+
 
 
 
@@ -417,49 +635,34 @@ function App() {
       </div>
 
       {title === 'Rewards' && (
-        <>
-          <div style={{ marginTop: '25px' }}>
-            <RewardCards />
-          </div>
+  <>
+    <div style={{ marginTop: '25px' }}>
+      <RewardCards />
+    </div>
 
-          <div style={{ marginTop: '30px' }}>
-            <h3>Reward activity</h3>
-            <ActivityList />
-          </div>
-        </>
-      )}
+    <div style={{ marginTop: '30px' }}>
+      <h3>Reward activity</h3>
+      <ActivityList />
+    </div>
+  </>
+)}
+{active === 'Achievements' && (
+  <OtherPage
+    title="Achievements"
+    description="Track your progress and completed achievements."
+    icon={Trophy}
+  />
+)}
 
-      {title === 'Achievements' && (
-        <div style={{ marginTop: '25px' }}>
-          {[
-            ['Early Bird', 'Logged in 7 days in a row', 'Completed'],
-            ['Fast Learner', 'Earned 500 XP', 'Completed'],
-            ['Team Player', 'Invite 5 friends', '3 of 5'],
-            ['XP Champion', 'Reach 2,000 XP', 'In progress'],
-          ].map(item => (
-            <div className="achievement-item" key={item[0]}>
-              <div className="achievement-icon violet">
-                <Trophy size={20} />
-              </div>
-              <div>
-                <strong>{item[0]}</strong>
-                <span>{item[1]}</span>
-              </div>
-              <span className="progress-mini">{item[2]}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {title === 'Wallet' && (
-        <div style={{ marginTop: '25px' }}>
-          <RewardCards />
-          <p style={{ color: '#9295a5', marginTop: '25px' }}>
-            Withdrawal and transaction history will be connected
-            to the backend later.
-          </p>
-        </div>
-      )}
+{title === 'Wallet' && (
+  <div style={{ marginTop: '25px' }}>
+    <RewardCards />
+    <p style={{ color: '#9295a5', marginTop: '25px' }}>
+      Withdrawal and transaction history will be connected
+      to the backend later.
+    </p>
+  </div>
+)}
 
       {title === 'Referrals' && (
         <div style={{ marginTop: '25px' }}>
@@ -494,8 +697,27 @@ function App() {
     </section>
   )
 
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        background: '#0e0b1a',
+        color: '#ffffff'
+      }}>
+        Loading VELoop...
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <AuthPage onLogin={handleLogin} />
+  }
+
   return (
     <div className="app-shell">
+
 
       {mobileMenu && (
         <div
@@ -566,10 +788,19 @@ function App() {
           </button>
 
           <div className="sidebar-user">
-            <div className="avatar">S</div>
+            <div className="avatar">
+              {user.name.charAt(0).toUpperCase()}
+              <button
+                className="text-action"
+                onClick={handleLogout}
+                style={{ marginTop: '12px' }}
+              >
+                Sign Out
+              </button>
+            </div>
 
             <div className="sidebar-user-info">
-              <strong>Soundarya</strong>
+              <strong>{user.name}</strong>
               <span>Level 08 Member</span>
             </div>
 
@@ -631,7 +862,9 @@ function App() {
             </div>
 
             <div className="topbar-profile">
-              <div className="avatar small">S</div>
+              <div className="avatar small">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
               <ChevronDown size={15} />
             </div>
           </div>
@@ -646,9 +879,8 @@ function App() {
               </div>
 
               <h1>
-                Welcome back, Soundarya <span className="wave">✦</span>
+                Welcome back, {user.name} <span className="wave">✦</span>
               </h1>
-
               <p>
                 Here's what's happening with your rewards today.
               </p>
@@ -663,17 +895,19 @@ function App() {
           {active === 'Overview' && <OverviewPage />}
 
           {active === 'My Profile' && (
-  <ProfilePage
-    isEditingProfile={isEditingProfile}
-    setIsEditingProfile={setIsEditingProfile}
-    profileName={profileName}
-    setProfileName={setProfileName}
-    profileEmail={profileEmail}
-    setProfileEmail={setProfileEmail}
-    savedProfile={savedProfile}
-    setSavedProfile={setSavedProfile}
-  />
-)}
+            <ProfilePage
+              isEditingProfile={isEditingProfile}
+              setIsEditingProfile={setIsEditingProfile}
+              profileName={profileName}
+              setProfileName={setProfileName}
+              profileEmail={profileEmail}
+              setProfileEmail={setProfileEmail}
+              savedProfile={user}
+              onSave={handleSaveProfile}
+              saving={profileSaving}
+              error={profileError}
+            />
+          )}
 
           {active === 'Rewards' && (
             <OtherPage
@@ -684,12 +918,14 @@ function App() {
           )}
 
           {active === 'Achievements' && (
-            <OtherPage
-              title="Achievements"
-              description="Track your badges and milestones."
-              icon={Trophy}
-            />
-          )}
+  <OtherPage
+    title="Achievements"
+    description="Track your progress and completed achievements."
+    icon={Trophy}
+  />
+)}
+
+    
 
           {active === 'Wallet' && (
             <OtherPage
@@ -736,16 +972,10 @@ const ProfilePage = ({
   profileEmail,
   setProfileEmail,
   savedProfile,
-  setSavedProfile
+  onSave,
+  saving,
+  error
 }) => {
-  const handleSave = () => {
-    setSavedProfile({
-      name: profileName,
-      email: profileEmail
-    })
-    setIsEditingProfile(false)
-  }
-
   const handleCancel = () => {
     setProfileName(savedProfile.name)
     setProfileEmail(savedProfile.email)
@@ -771,22 +1001,27 @@ const ProfilePage = ({
       </div>
 
       <div style={{ marginTop: '30px' }}>
-        <div className="avatar" style={{
-          width: '70px',
-          height: '70px',
-          fontSize: '28px',
-          marginBottom: '25px'
-        }}>
+        <div
+          className="avatar"
+          style={{
+            width: '70px',
+            height: '70px',
+            fontSize: '28px',
+            marginBottom: '25px'
+          }}
+        >
           {savedProfile.name.charAt(0).toUpperCase()}
         </div>
 
         <div style={{ marginBottom: '20px' }}>
           <label>Full Name</label>
+
           {isEditingProfile ? (
             <input
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
               placeholder="Enter your name"
+              maxLength={100}
             />
           ) : (
             <p>{savedProfile.name}</p>
@@ -795,24 +1030,41 @@ const ProfilePage = ({
 
         <div style={{ marginBottom: '20px' }}>
           <label>Email Address</label>
+
           {isEditingProfile ? (
             <input
               type="email"
               value={profileEmail}
               onChange={(e) => setProfileEmail(e.target.value)}
               placeholder="Enter your email"
+              maxLength={120}
             />
           ) : (
-            <p>{savedProfile.email || 'No email added yet'}</p>
+            <p>{savedProfile.email}</p>
           )}
         </div>
 
+        {error && (
+          <p style={{ color: '#ff6b81', marginBottom: '15px' }}>
+            {error}
+          </p>
+        )}
+
         {isEditingProfile && (
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="text-action" onClick={handleSave}>
-              Save Changes
+            <button
+              className="text-action"
+              onClick={onSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
-            <button className="text-action" onClick={handleCancel}>
+
+            <button
+              className="text-action"
+              onClick={handleCancel}
+              disabled={saving}
+            >
               Cancel
             </button>
           </div>
@@ -821,5 +1073,4 @@ const ProfilePage = ({
     </section>
   )
 }
-
 export default App
