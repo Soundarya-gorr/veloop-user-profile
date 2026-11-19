@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-A full-stack User Profile Management System developed as part of the VELoop internship Task 14. The application aims to provide users with a dashboard to manage their profiles and rewards, along with an administrative interface for managing users and related activities.
+A full-stack User Profile Management System developed as part of the VELoop Internship Task 14.
+
+The application provides a user dashboard to manage profile information, view reward balances, track reward activity, and access achievements. It is developed using React.js, Flask, and MySQL.
 
 ## Technology Stack
 
@@ -21,6 +23,7 @@ A full-stack User Profile Management System developed as part of the VELoop inte
 - Flask-SQLAlchemy
 - PyMySQL
 - Werkzeug
+- JWT Authentication
 
 ### Database
 - MySQL
@@ -40,6 +43,7 @@ veloop-user-profile/
 │   │   ├── assets/
 │   │   ├── App.jsx
 │   │   ├── App.css
+│   │   ├── AuthPage.jsx
 │   │   ├── api.js
 │   │   ├── index.css
 │   │   └── main.jsx
@@ -53,20 +57,36 @@ veloop-user-profile/
 └── README.md
 ```
 
-## Current Features
+## Implemented Features
 
 ### Frontend
-- Initial React dashboard UI
-- Sidebar navigation and dashboard layout
-- Dashboard styling and visual components
+- Modern VELoop dashboard interface
+- Sidebar navigation
+- User registration and login interface
+- User profile page
+- Profile editing functionality
+- Rewards dashboard
+- Reward activity display
+- Achievements section integration
 
 ### Backend
-- Flask API setup
-- MySQL database connection
-- User registration
-- Password hashing
-- User login and password verification
-- User profile retrieval
+- Flask REST API
+- MySQL database connectivity
+- User registration and login APIs
+- Password hashing and verification
+- JWT-based authentication
+- User profile retrieval and update
+- Reward balance API
+- Reward activity API
+- Achievements API
+- Database integration using Flask-SQLAlchemy
+
+### Rewards Integration
+- Gems balance
+- Tokens balance
+- VELoop reward balances
+- Reward activity history
+- Achievement records and progress
 
 ## API Endpoints
 
@@ -75,8 +95,12 @@ veloop-user-profile/
 | GET | `/` | Backend status |
 | GET | `/test-db` | Test database connection |
 | POST | `/register` | Register a user |
-| POST | `/login` | Login a user |
-| GET | `/profile/<user_id>` | Retrieve user profile |
+| POST | `/login` | Authenticate a user |
+| GET | `/rewards` | Retrieve reward balances |
+| GET | `/reward-activity` | Retrieve reward activity |
+| GET | `/achievements` | Retrieve achievement records |
+
+*Protected endpoints require valid authentication.*
 
 ## Installation and Setup
 
@@ -106,7 +130,9 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Configure your local MySQL database connection, then start the backend:
+Configure your MySQL database and required environment variables.
+
+Start the backend:
 
 ```bash
 python app.py
@@ -114,7 +140,7 @@ python app.py
 
 ### 3. Frontend Setup
 
-Open another terminal and navigate to the frontend folder:
+Open another terminal:
 
 ```bash
 cd frontend
@@ -124,20 +150,37 @@ npm run dev
 
 Open the local URL displayed by Vite in your browser.
 
-## Project Status
+## Current Project Status
 
-The initial React frontend dashboard and the initial Flask backend APIs with MySQL integration have been developed.
+The project is under active development.
 
-The project is currently under development. Remaining work includes:
+### Completed
+- React frontend and Flask backend setup
+- MySQL database integration
+- User registration and login
+- User profile retrieval and update
+- Reward balance integration
+- Reward activity integration
+- Achievements backend API and database integration
+- Frontend production build verification
 
-- Completing the frontend dashboard and remaining pages
-- Frontend and backend API integration
-- Protected authentication and authorization
-- Rewards management (Gems, Tokens, XP and levels)
-- Admin panel and user management
-- Testing and validation
-- Documentation and deployment
+### Work in Progress
+- Completing Achievements frontend functionality
+- Admin Panel and user management
+- Additional authorization and security verification
+- Complete application testing
+- Deployment
+
+## GitHub Repository
+
+https://github.com/Soundarya-gorr/veloop-user-profile
 
 ## Developer
 
-Soundarya
+**Soundarya**
+
+B.E. – Electrical and Electronics Engineering
+
+## About
+
+VELoop User Profile Management System – Internship Task 14.
